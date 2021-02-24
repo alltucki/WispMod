@@ -127,6 +127,14 @@ namespace EntityStates.WispSurvivorStates
 
         void FixedUpdate()
         {
+            GrappleTarget[] grappleTargets = GrappleTargets.ToArray();
+            foreach (GrappleTarget target in grappleTargets)
+            {
+                if (target.grappleTargetHealth != null && !target.grappleTargetHealth.alive)
+                {
+                    ClearGrappleTarget(target);
+                }
+            }
             if (hasTarget)
             {
                 tickTime += Time.fixedDeltaTime;
@@ -150,14 +158,6 @@ namespace EntityStates.WispSurvivorStates
                 }
                 UpdateTether();
             }
-            foreach(GrappleTarget target in GrappleTargets)
-            {
-                if (target.grappleTargetHealth != null && !target.grappleTargetHealth.alive)
-                {
-                    ClearGrappleTarget(target);
-                }
-            }
-            
         }
 
         private void DoTick()
