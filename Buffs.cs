@@ -20,9 +20,11 @@ namespace WispSurvivor.Modules
         {
             siphonSelf = AddNewBuff("WispSiphonSelf", "textures/bufficons/texBuffBodyArmorIcon", Color.blue, false, false);
             siphonTarget = AddNewBuff("WispSiphonTarget", "textures/bufficons/texBuffBodyArmorIcon", Color.clear, false, true);
+            Debug.Log("Registered siphon buffs");
 
             sustainSelf = AddNewBuff("WispSustainSelf", "textures/bufficons/texBuffPowerIcon", Color.clear, false, false);
             sustainTarget = AddNewBuff("WispSustainTarget", "textures/bufficons/texBuffPowerIcon", Color.clear, false, false);
+            Debug.Log("Registered sustain buffs");
 
             haste = AddNewBuff("WispHaste", "Textures/BuffIcons/texBuffTempestSpeedIcon", Color.red, true, false);
 

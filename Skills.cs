@@ -6,6 +6,7 @@ using R2API;
 using System;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Networking;
 using static On.RoR2.DotController;
 using System.Collections.Generic;
 
@@ -27,7 +28,7 @@ namespace EntityStates.WispSurvivorStates
         public override void OnEnter()
         {
             base.OnEnter();
-            
+
             base.modelLocator.normalizeToFloor = true;
             EffectManager.SpawnEffect(WispSurvivor.WispSurvivor.spawnEffect, new EffectData
             {
@@ -92,7 +93,7 @@ namespace EntityStates.WispSurvivorStates
     }
 
     //Handle everything around being tethered.
-    public class TetherHandler : MonoBehaviour
+    public class TetherHandler : NetworkBehaviour
     {
         //Core stuff
         public static TetherHandler instance;
@@ -117,6 +118,7 @@ namespace EntityStates.WispSurvivorStates
 
         void Start()
         {
+            Debug.LogWarning("Tether handler start function run on " + gameObject);
             instance = this;
             motor = transform.root.GetComponentInChildren<CharacterMotor>();
             direction = transform.root.GetComponentInChildren<CharacterDirection>();
@@ -217,17 +219,18 @@ namespace EntityStates.WispSurvivorStates
         }
 
         #region getters-setters
-
         public void SetGrappleTarget(HurtBox target)
         {
-            myBody = GetComponent<CharacterBody>();
+            Debug.Log("Attempting to set grapple target to " + target.name);
+            myBody = GetComponent<CharacterBody>(); //This should probably go somewhere else
             GrappleTarget newTarget = new GrappleTarget();
-
+            
             newTarget.grappleTarget = target;
             newTarget.grappleTargetHealth = newTarget.grappleTarget.healthComponent;
             newTarget.grappleTargetBody = newTarget.grappleTarget.healthComponent.body;
             newTarget.tether = GameObject.Instantiate(WispSurvivor.WispSurvivor.tetherPrefab);
             newTarget.tether.AddComponent<AnimateTether>();
+            Debug.Log("Set grapple target to " + newTarget.grappleTargetBody);
 
             GrappleTargets.Add(newTarget);
             hasTarget = true;
@@ -311,7 +314,7 @@ namespace EntityStates.WispSurvivorStates
                 if (grappleHandler == null)
                 {
                     grappleHandler = base.gameObject.AddComponent<TetherHandler>();
-                    Debug.LogWarning("Added grapple handler");
+                    Debug.LogWarning("Added grapple handler via fireball function");
                 }
             }
 
@@ -336,7 +339,7 @@ namespace EntityStates.WispSurvivorStates
             base.OnExit();
         }
 
-        private void FireArrow()
+        private void FireShot()
         {
             if (!this.hasFired)
             {
@@ -348,7 +351,6 @@ namespace EntityStates.WispSurvivorStates
 
                 if (base.isAuthority)
                 {
-                    //ProjectileManager.instance.FireProjectile(ExampleSurvivor.WispSurvivor.arrowProjectile, aimRay.origin, Util.QuaternionSafeLookRotation(aimRay.direction), base.gameObject, this.damageCoefficient * this.damageStat, 0f, Util.CheckRoll(this.critStat, base.characterBody.master), DamageColorIndex.Default, null, -1f);
                     ProjectileManager.instance.FireProjectile(WispSurvivor.WispSurvivor.fireballProjectile, aimRay.origin, Util.QuaternionSafeLookRotation(aimRay.direction), base.gameObject, this.damageCoefficient * this.damageStat, 0f, Util.CheckRoll(this.critStat, base.characterBody.master), DamageColorIndex.Default, null, -1f);
                 }
             }
@@ -360,7 +362,7 @@ namespace EntityStates.WispSurvivorStates
 
             if (base.fixedAge >= this.fireDuration)
             {
-                FireArrow();
+                FireShot();
             }
 
             if (base.fixedAge >= this.duration && base.isAuthority)
@@ -404,7 +406,7 @@ namespace EntityStates.WispSurvivorStates
                 if (grappleHandler == null)
                 {
                     grappleHandler = base.gameObject.AddComponent<TetherHandler>();
-                    Debug.LogWarning("Added grapple handler");
+                    Debug.LogWarning("Added grapple handler via haste skill");
                 }
             }
 
@@ -426,27 +428,23 @@ namespace EntityStates.WispSurvivorStates
                 Ray aimRay = base.GetAimRay();
                 EffectManager.SimpleMuzzleFlash(Commando.CommandoWeapon.FirePistol.effectPrefab, base.gameObject, this.muzzleString, false);
 
-                if (base.isAuthority)
+                if(NetworkServer.active) base.characterBody.AddTimedBuff(WispSurvivor.Modules.Buffs.haste, 5f);
+                if (grappleHandler.hasGrappleTarget())
                 {
-                    base.characterBody.AddTimedBuff(WispSurvivor.Modules.Buffs.haste, 5f);
-                    if (grappleHandler.hasGrappleTarget())
+                    List<GrappleTarget> targets = grappleHandler.GetGrappleTargets();
+                    foreach (GrappleTarget target in targets)
                     {
-                        List<GrappleTarget> targets = grappleHandler.GetGrappleTargets();
-                        foreach (GrappleTarget target in targets)
+                        if (target.grappleTarget.teamIndex == TeamIndex.Player)
                         {
-                            if (target.grappleTarget.teamIndex == TeamIndex.Player)
-                            {
-                                target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.haste, 5f);
-                            }
-                            else if (target.grappleTarget.teamIndex == TeamIndex.Monster)
-                            {
-                                target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.slow, 5f);
-                            }
+                            if (NetworkServer.active) target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.haste, 5f);
                         }
-
+                        else if (target.grappleTarget.teamIndex == TeamIndex.Monster)
+                        {
+                            if (NetworkServer.active) target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.slow, 5f);
+                        }
                     }
-                }
 
+                }
             }
         }
 
@@ -500,7 +498,7 @@ namespace EntityStates.WispSurvivorStates
                 if (grappleHandler == null)
                 {
                     grappleHandler = base.gameObject.AddComponent<TetherHandler>();
-                    Debug.LogWarning("Added grapple handler");
+                    Debug.LogWarning("Added grapple handler via invigorate skill");
                 }
             }
 
@@ -522,9 +520,11 @@ namespace EntityStates.WispSurvivorStates
                 Ray aimRay = base.GetAimRay();
                 EffectManager.SimpleMuzzleFlash(Commando.CommandoWeapon.FirePistol.effectPrefab, base.gameObject, this.muzzleString, false);
 
-                if (base.isAuthority)
+
+                if (NetworkServer.active)
                 {
                     base.characterBody.AddTimedBuff(WispSurvivor.Modules.Buffs.invigorate, 5f);
+
 
                     if (grappleHandler.hasGrappleTarget())
                     {
@@ -533,16 +533,18 @@ namespace EntityStates.WispSurvivorStates
                         {
                             if (target.grappleTarget.teamIndex == TeamIndex.Monster)
                             {
-                                target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.regenMinus, 5f);
-                                DotController.InflictDot(target.grappleTargetHealth.gameObject, base.healthComponent.gameObject, WispSurvivor.Modules.Buffs.degenDot);
+                                if (NetworkServer.active)
+                                {
+                                    target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.regenMinus, 5f);
+                                    DotController.InflictDot(target.grappleTargetHealth.gameObject, base.healthComponent.gameObject, WispSurvivor.Modules.Buffs.degenDot);
+                                }
                             }
                             else if (target.grappleTarget.teamIndex == TeamIndex.Player)
                             {
-                                target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.invigorate, 5f);
+                                if (NetworkServer.active) target.grappleTargetBody.AddTimedBuff(WispSurvivor.Modules.Buffs.invigorate, 5f);
                             }
                         }
                     }
-                    //ProjectileManager.instance.FireProjectile(ExampleSurvivor.ExampleSurvivor.grenadeProjectile, aimRay.origin, Util.QuaternionSafeLookRotation(aimRay.direction), base.gameObject, this.damageCoefficient * this.damageStat, 0f, Util.CheckRoll(this.critStat, base.characterBody.master), DamageColorIndex.Default, null, -1f);
                 }
 
             }
@@ -586,7 +588,16 @@ namespace EntityStates.WispSurvivorStates
 
         public override void OnEnter()
         {
+            Debug.Log("Entering siphon skillstate");
             base.OnEnter();
+            this.duration = baseDuration;
+            this.fireDuration = this.duration * .01f;
+        }
+
+        private void DoSiphon()
+        {
+            if (this.hasFired) return;
+            this.hasFired = true;
             if (base.isAuthority)
             {
                 tetherHandler = base.GetComponent<TetherHandler>();
@@ -596,7 +607,7 @@ namespace EntityStates.WispSurvivorStates
                 Ray aimRay = base.GetAimRay();
                 RaycastHit raycastHit = new RaycastHit();
                 bool foundTarget = Physics.Raycast(aimRay, out raycastHit, maxDistanceFilter);
-                
+
                 if (foundTarget && raycastHit.collider.GetComponent<HurtBox>())
                 {
                     TeamIndex targetTeamIndex = raycastHit.collider.GetComponent<HurtBox>().healthComponent.body.teamComponent.teamIndex;
@@ -604,7 +615,7 @@ namespace EntityStates.WispSurvivorStates
                     if (base.GetTeam() != targetTeamIndex)
                     {
                         closestHurtbox = raycastHit.collider.GetComponent<HurtBox>();
-                        //Debug.Log("Found object " + closestHurtbox.transform.root.name);
+                        Debug.Log("Found aimed at object " + closestHurtbox.transform.root.name);
                     }
                 }
                 //If we weren't aiming at something, just search for a valid nearby target
@@ -627,7 +638,7 @@ namespace EntityStates.WispSurvivorStates
                     //Get the closest hurtbox
                     closestHurtbox = bullseyeSearch.GetResults().FirstOrDefault<HurtBox>();
 
-                    //Debug.Log("Found object " + closestHurtbox.transform.root.name);
+                    Debug.Log("Found object " + closestHurtbox.transform.root.name);
                     if (closestHurtbox == default(HurtBox)) Debug.LogError("Default value!");
                     if (closestHurtbox == null) Debug.LogError("Null value!");
                 }
@@ -636,23 +647,25 @@ namespace EntityStates.WispSurvivorStates
                 if (tetherHandler == null)
                 {
                     tetherHandler = base.gameObject.AddComponent<TetherHandler>();
-                    Debug.LogWarning("Added grapple handler");
+                    Debug.LogWarning("Added grapple handler via siphon");
                 }
 
                 //Then establish our grapple target
-                if(closestHurtbox == null)
+                if (closestHurtbox == null)
                 {
                     Debug.LogError("Null hurtbox");
                     return;
                 }
-                
+
 
                 //If we've successfully established a tether
-                if(closestHurtbox)
+                if (closestHurtbox)
                 {
+                    Debug.Log("Attempting to establish tether");
+
                     //If adding a new grapple target would go beyond our max stock
                     int curNumGrappled = tetherHandler.GetGrappleTargets().Count;
-                    if(curNumGrappled + 1 > base.activatorSkillSlot.maxStock)
+                    if (curNumGrappled + 1 > base.activatorSkillSlot.maxStock)
                     {
                         //Remove the oldest grapple target
                         tetherHandler.ClearGrappleTarget(tetherHandler.GetGrappleTargets()[0]);
@@ -663,7 +676,7 @@ namespace EntityStates.WispSurvivorStates
                     base.characterBody.AddBuff(WispSurvivor.Modules.Buffs.siphonSelf);
                     closestHurtbox.healthComponent.body.AddBuff(WispSurvivor.Modules.Buffs.siphonTarget);
                 }
-                
+
             }
 
             this.animator = base.GetModelAnimator();
@@ -682,6 +695,10 @@ namespace EntityStates.WispSurvivorStates
         public override void FixedUpdate()
         {
             base.FixedUpdate();
+            if(base.fixedAge >= this.fireDuration)
+            {
+                DoSiphon();
+            }
 
             if (base.fixedAge >= this.duration && base.isAuthority)
             {
@@ -713,12 +730,28 @@ namespace EntityStates.WispSurvivorStates
 
         public override void OnEnter()
         {
+            short tetherIndex = EntityStates.StateIndexTable.TypeToIndex(typeof(WispTether));
+            Debug.Log("Entering tether base state. Index on this machine: " + tetherIndex); 
             base.OnEnter();
-            if (base.isAuthority)
-            {
+            this.duration = baseDuration;
+            this.fireDuration = this.duration * .01f;
+            Debug.Log("Ran on enter for tether");
+        }
+
+        private void DoTether()
+        {
+            if (this.hasFired) return;
+            this.hasFired = true;
+            Debug.Log("Setting tether handler!");
+
+            //base.isAuthority -> will only run on local machine
+            //if (base.isAuthority)
+            //{
                 tetherHandler = base.GetComponent<TetherHandler>();
+
                 HurtBox closestHurtbox = null;
 
+                Debug.Log("Raycasting!");
                 //First check to see if we're aiming at a valid target
                 Ray aimRay = base.GetAimRay();
                 RaycastHit raycastHit = new RaycastHit();
@@ -731,7 +764,7 @@ namespace EntityStates.WispSurvivorStates
                     if (base.GetTeam() == targetTeamIndex)
                     {
                         closestHurtbox = raycastHit.collider.GetComponent<HurtBox>();
-                        Debug.Log("Found object " + closestHurtbox.transform.root.name);
+                        Debug.Log("Found aimed at object " + closestHurtbox.transform.root.name);
                     }
                 }
                 //If we weren't aiming at something, just search for a valid nearby target
@@ -756,7 +789,7 @@ namespace EntityStates.WispSurvivorStates
                     //Get the closest hurtbox
                     closestHurtbox = bullseyeSearch.GetResults().FirstOrDefault<HurtBox>();
 
-                    Debug.Log("Found object " + closestHurtbox.transform.root.name);
+                    Debug.Log("Found local object " + closestHurtbox.transform.root.name);
                     if (closestHurtbox == default(HurtBox)) Debug.LogError("Default value!");
                     if (closestHurtbox == null) Debug.LogError("Null value!");
                 }
@@ -765,9 +798,10 @@ namespace EntityStates.WispSurvivorStates
                 if (tetherHandler == null)
                 {
                     tetherHandler = base.gameObject.AddComponent<TetherHandler>();
-                    Debug.LogWarning("Added grapple handler");
+                    Debug.LogWarning("Added grapple handler via tether function");
+                    return;
                 }
-                
+
                 //Then establish our grapple target
                 if (closestHurtbox == null)
                 {
@@ -777,6 +811,7 @@ namespace EntityStates.WispSurvivorStates
                 //If we've successfully established a tether
                 else if (closestHurtbox)
                 {
+                    Debug.Log("Attempting to establish tether");
                     //If adding a new grapple target would go beyond our max stock
                     int curNumGrappled = tetherHandler.GetGrappleTargets().Count;
                     if (curNumGrappled + 1 > base.activatorSkillSlot.maxStock)
@@ -787,18 +822,19 @@ namespace EntityStates.WispSurvivorStates
 
                     tetherHandler.SetGrappleTarget(closestHurtbox);
                     tetherHandler.TETHER_TYPE = TETHER_TYPE.TETHER;
+                    Debug.Log("Set grapple target");
 
                     base.characterBody.AddBuff(WispSurvivor.Modules.Buffs.sustainSelf);
                     closestHurtbox.healthComponent.body.AddBuff(WispSurvivor.Modules.Buffs.sustainTarget);
                 }
+            //}
+            /*
+                this.animator = base.GetModelAnimator();
+                this.muzzleString = "Muzzle";
 
-            }
 
-            this.animator = base.GetModelAnimator();
-            this.muzzleString = "Muzzle";
-
-
-            base.PlayAnimation("Gesture, Override", "FireGrapple", "FireGrapple.playbackRate", this.duration);
+                base.PlayAnimation("Gesture, Override", "FireGrapple", "FireGrapple.playbackRate", this.duration);
+                */
         }
 
         public override void OnExit()
@@ -810,6 +846,12 @@ namespace EntityStates.WispSurvivorStates
         public override void FixedUpdate()
         {
             base.FixedUpdate();
+
+            if(base.fixedAge >= this.fireDuration && !hasFired)
+            {
+                Debug.Log("Running DoTether");
+                DoTether();
+            }
 
             if (base.fixedAge >= this.duration && base.isAuthority)
             {
@@ -847,7 +889,7 @@ namespace EntityStates.WispSurvivorStates
                 if (grappleHandler == null)
                 {
                     grappleHandler = base.gameObject.AddComponent<TetherHandler>();
-                    Debug.LogWarning("Added grapple handler");
+                    Debug.LogWarning("Added grapple handler via burst function");
                 }
             }
 
@@ -883,7 +925,7 @@ namespace EntityStates.WispSurvivorStates
                 base.characterBody.AddSpreadBloom(1.25f);
                 EffectManager.SimpleMuzzleFlash(Commando.CommandoWeapon.FirePistol.effectPrefab, base.gameObject, this.muzzleString, false);
 
-                if (base.isAuthority)
+                if (NetworkServer.active)
                 {
                     EffectManager.SimpleEffect(WispSurvivor.WispSurvivor.burstPrefab, transform.position, transform.rotation, true);
                     EffectManager.SimpleEffect(WispSurvivor.WispSurvivor.burstSecondary, transform.position, transform.rotation, true);

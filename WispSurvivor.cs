@@ -23,7 +23,7 @@ namespace WispSurvivor
     [BepInDependency("com.bepis.r2api")]
 
     [BepInPlugin(MODUID, "WispSurvivor", "1.0.0")] // put your own name and version here
-    [R2APISubmoduleDependency(nameof(PrefabAPI), nameof(SurvivorAPI), nameof(LoadoutAPI), nameof(ItemAPI), nameof(DifficultyAPI), nameof(BuffAPI), nameof(DotAPI), nameof(LanguageAPI))] // need these dependencies for the mod to work properly
+    [R2APISubmoduleDependency(nameof(PrefabAPI), nameof(SurvivorAPI), nameof(LoadoutAPI), nameof(EffectAPI), nameof(ItemAPI), nameof(DifficultyAPI), nameof(BuffAPI), nameof(DotAPI), nameof(LanguageAPI))] // need these dependencies for the mod to work properly
 
 
     public class WispSurvivor : BaseUnityPlugin
@@ -44,6 +44,7 @@ namespace WispSurvivor
 
         private void Awake()
         {
+            On.RoR2.Networking.GameNetworkManager.OnClientConnect += (self, user, t) => { };    //Debugging networking
             Assets.PopulateAssets(); // first we load the assets from our assetbundle
             CreatePrefab(); // then we create our character's body prefab
             RegisterNetworkedEffects();
@@ -81,7 +82,7 @@ namespace WispSurvivor
             Transform wispFire = wispReplacement.transform.Find("Model Base").Find("mdlWisp1Mouth").Find("WispArmature").Find("ROOT").Find("Base").Find("Fire");
             //Shrink the fire and put it above ground
             wispFire.localScale = new Vector3(.5f, .5f, .5f);
-            wispFire.localPosition = new Vector3(0f, 1f, 0f);
+            wispFire.localPosition = new Vector3(0f, 1.25f, 0f);
             wispFire.SetParent(model.transform);
             //Debug.Log("Added fire to model");
 
@@ -206,9 +207,12 @@ namespace WispSurvivor
             bodyComponent.currentVehicle = null;
             bodyComponent.preferredPodPrefab = null;
             bodyComponent.preferredInitialStateType = entityStateMachine.initialStateType;
+            
 
             //Change our main state to account for the float functionality
             entityStateMachine.mainStateType = new SerializableEntityStateType(typeof(EntityStates.WispSurvivorStates.WispCharacterMain));
+
+            characterPrefab.AddComponent<TetherHandler>();
             #endregion
 
             #region movement-camera
@@ -322,7 +326,7 @@ namespace WispSurvivor
             teamComponent.teamIndex = TeamIndex.None;
 
             HealthComponent healthComponent = characterPrefab.GetComponent<HealthComponent>();
-            healthComponent.health = 0f;
+            healthComponent.health = 82.5f;
             healthComponent.shield = 0f;
             healthComponent.barrier = 0f;
             healthComponent.magnetiCharge = 0f;
@@ -477,11 +481,10 @@ namespace WispSurvivor
                 displayPrefab = characterDisplay
             };
 
-
-            SurvivorAPI.AddSurvivor(survivorDef);
-
             // set up the survivor's skills here
             SkillSetup();
+
+            SurvivorAPI.AddSurvivor(survivorDef);
 
             // gotta add it to the body catalog too
             BodyCatalog.getAdditionalEntries += delegate (List<GameObject> list)
@@ -539,7 +542,7 @@ namespace WispSurvivor
 
 
             // register it for networking
-            fireballProjectile.AddComponent<NetworkIdentity>();
+            //fireballProjectile.AddComponent<NetworkIdentity>();
             if (fireballProjectile) PrefabAPI.RegisterNetworkPrefab(fireballProjectile);
             tetherPrefab.AddComponent<NetworkIdentity>();
             if (tetherPrefab) PrefabAPI.RegisterNetworkPrefab(tetherPrefab);
@@ -575,6 +578,12 @@ namespace WispSurvivor
         {
             On.RoR2.CharacterBody.RecalculateStats += CharacterBody_RecalculateStats;
             On.RoR2.HealthComponent.TakeDamage += EntityStates.WispSurvivorStates.TetherHandler.Tether;
+        }
+
+        private string timestamp()
+        {
+            string returnString = "[" + System.DateTime.Now.Hour + ":" + System.DateTime.Now.Minute + ":" + System.DateTime.Now.Millisecond + "]";
+            return returnString;
         }
 
         private void CharacterBody_RecalculateStats(On.RoR2.CharacterBody.orig_RecalculateStats orig, CharacterBody self)

@@ -4,6 +4,7 @@ using R2API.Utils;
 using RoR2;
 using RoR2.Skills;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace WispSurvivor.Modules.Survivors
@@ -13,6 +14,8 @@ namespace WispSurvivor.Modules.Survivors
         public static SkillDef primarySkillDef;
         public static SkillDef hasteSkillDef;
         public static SkillDef invigorateSkillDef;
+        public static SkillDef siphonSkillDef;
+        public static SkillDef tetherSkillDef;
         public static SkillDef burstSkillDef;
 
         public static void CreateSkills()
@@ -119,6 +122,7 @@ namespace WispSurvivor.Modules.Survivors
             LoadoutAPI.AddSkillDef(mySkillDef);
             hasteSkillDef = mySkillDef;
             component.secondary = WispSurvivor.characterPrefab.AddComponent<GenericSkill>();
+
             SkillFamily newFamily = ScriptableObject.CreateInstance<SkillFamily>();
             newFamily.variants = new SkillFamily.Variant[1];
             LoadoutAPI.AddSkillFamily(newFamily);
@@ -145,6 +149,7 @@ namespace WispSurvivor.Modules.Survivors
             };
             */
 
+            #region invigorate
             LanguageAPI.Add("WISP_REGEN_NAME", "Invigorate");
             LanguageAPI.Add("WISP_REGEN_DESCRIPTION", "Increase healing rate and base damage. Duplicate effect on <style=cIsHealing>partner</style>. " +
                 "Deal <style=cIsDamage>100%</style> damage per second to <style=cIsHealing>tethered</style> enemies.");
@@ -183,6 +188,7 @@ namespace WispSurvivor.Modules.Survivors
                 unlockableName = "",
                 viewableNode = new ViewablesCatalog.Node(secondarySkillDef.skillNameToken, false, null)
             };
+            #endregion
         }
 
         private static void UtilitySetup()
@@ -216,6 +222,7 @@ namespace WispSurvivor.Modules.Survivors
 
             LoadoutAPI.AddSkillDef(mySkillDef);
             component.utility = WispSurvivor.characterPrefab.AddComponent<GenericSkill>();
+
             SkillFamily newFamily = ScriptableObject.CreateInstance<SkillFamily>();
             newFamily.variants = new SkillFamily.Variant[1];
             LoadoutAPI.AddSkillFamily(newFamily);
@@ -228,40 +235,63 @@ namespace WispSurvivor.Modules.Survivors
                 unlockableName = "",
                 viewableNode = new ViewablesCatalog.Node(mySkillDef.skillNameToken, false, null)
             };
+            siphonSkillDef = mySkillDef;
+            short siphonIndex = EntityStates.StateIndexTable.TypeToIndex(typeof(EntityStates.WispSurvivorStates.WispSiphon));
 
             LanguageAPI.Add("WISP_TETHER_NAME", "Tether");
             LanguageAPI.Add("WISP_TETHER_DESCRIPTION", "<style=cIsHealing>Tether</style> to the nearest ally and increase regen rate. Gain <style=cShrine>barrier</style> when they deal damage.");
 
-            mySkillDef = ScriptableObject.CreateInstance<SkillDef>();
-            mySkillDef.activationState = new SerializableEntityStateType(typeof(EntityStates.WispSurvivorStates.WispTether));
-            mySkillDef.activationStateMachineName = "Weapon";
-            mySkillDef.baseMaxStock = 1;
-            mySkillDef.baseRechargeInterval = 1f;
-            mySkillDef.beginSkillCooldownOnSkillEnd = true;
-            mySkillDef.canceledFromSprinting = false;
-            mySkillDef.fullRestockOnAssign = true;
-            mySkillDef.interruptPriority = InterruptPriority.PrioritySkill;
-            mySkillDef.isBullets = false;
-            mySkillDef.isCombatSkill = false;
-            mySkillDef.mustKeyPress = true;
-            mySkillDef.noSprint = false;
-            mySkillDef.rechargeStock = 1;
-            mySkillDef.requiredStock = 1;
-            mySkillDef.shootDelay = 1f;
-            mySkillDef.stockToConsume = 1;
-            mySkillDef.icon = Assets.icon3_tether;
-            mySkillDef.skillDescriptionToken = "WISP_TETHER_DESCRIPTION";
-            mySkillDef.skillName = "WISP_TETHER_NAME";
-            mySkillDef.skillNameToken = "WISP_TETHER_NAME";
+            SkillDef tetherDef = ScriptableObject.CreateInstance<SkillDef>();
+            tetherDef.activationState = new SerializableEntityStateType(typeof(EntityStates.WispSurvivorStates.WispTether));
+            tetherDef.activationStateMachineName = "Weapon";
+            tetherDef.baseMaxStock = 1;
+            tetherDef.baseRechargeInterval = 1f;
+            tetherDef.beginSkillCooldownOnSkillEnd = true;
+            tetherDef.canceledFromSprinting = false;
+            tetherDef.fullRestockOnAssign = true;
+            tetherDef.interruptPriority = InterruptPriority.PrioritySkill;
+            tetherDef.isBullets = false;
+            tetherDef.isCombatSkill = false;
+            tetherDef.mustKeyPress = true;
+            tetherDef.noSprint = false;
+            tetherDef.rechargeStock = 1;
+            tetherDef.requiredStock = 1;
+            tetherDef.shootDelay = 1f;
+            tetherDef.stockToConsume = 1;
+            tetherDef.icon = Assets.icon3_tether;
+            tetherDef.skillDescriptionToken = "WISP_TETHER_DESCRIPTION";
+            tetherDef.skillName = "WISP_TETHER_NAME";
+            tetherDef.skillNameToken = "WISP_TETHER_NAME";
 
+            LoadoutAPI.AddSkillDef(tetherDef);  //For some reason this isn't loading properly, so tetherIndex will always resolve to -1
+            tetherSkillDef = tetherDef;
+            short tetherIndex = EntityStates.StateIndexTable.TypeToIndex(typeof(EntityStates.WispSurvivorStates.WispTether));
+
+            if (tetherIndex == -1)
+            {
+                Debug.LogError("Issue setting up tether skilldef! Attempting to re-add...");
+
+                TryAddSkill(typeof(EntityStates.WispSurvivorStates.WispTether));    //So...we just add again
+
+                tetherIndex = EntityStates.StateIndexTable.TypeToIndex(typeof(EntityStates.WispSurvivorStates.WispTether));
+            }
+            Debug.Log("Set up tether skilldef. Index: " + tetherIndex);
+
+            /*
+            Debug.Log("Last indicies: ");
+            for(short i = siphonIndex; i < tetherIndex; i++)
+            {
+                Debug.Log(i + ": " + StateIndexTable.IndexToType(i));
+            }
+            */
             // add this code after defining a new skilldef if you're adding an alternate skill
 
             Array.Resize(ref skillFamily.variants, skillFamily.variants.Length + 1);
             skillFamily.variants[skillFamily.variants.Length - 1] = new SkillFamily.Variant
             {
-                skillDef = mySkillDef,
+                skillDef = tetherDef,
                 unlockableName = "",
-                viewableNode = new ViewablesCatalog.Node(mySkillDef.skillNameToken, false, null)
+                viewableNode = new ViewablesCatalog.Node(tetherDef.skillNameToken, false, null)
             };
         }
 
@@ -323,6 +353,49 @@ namespace WispSurvivor.Modules.Survivors
                 unlockableName = "",
                 viewableNode = new ViewablesCatalog.Node(newSkillDef.skillNameToken, false, null)
             };*/
+        }
+
+        private static void printSkillDef(SkillDef skillDef)
+        {
+            Debug.Log(skillDef.skillName);
+            Debug.Log(skillDef.skillDescriptionToken);
+            Debug.Log("\t Index: " + skillDef.skillIndex);
+            Debug.Log("\t Activation state: " + skillDef.activationState);
+            Debug.Log("\t Activation state machine: " + skillDef.activationStateMachineName);
+        }
+
+        private static void TryAddSkill(Type t)
+        {
+            var stateTable = typeof(EntityState).Assembly.GetType("EntityStates.StateIndexTable");
+            var id2State = stateTable.GetFieldValue<Type[]>("stateIndexToType");
+            var name2Id = stateTable.GetFieldValue<string[]>("stateIndexToTypeName");
+            var state2Id = stateTable.GetFieldValue<Dictionary<Type, short>>("stateTypeToIndex");
+            if (id2State == null) Debug.LogError("Error in finding id2State!");
+            if (name2Id == null) Debug.LogError("Error finding name2Id!");
+            if (state2Id == null) Debug.LogError("Error finding state2Id!");
+
+            int originalLength = id2State.Length;
+            Debug.Log("Original length: " + originalLength);
+            Debug.Log("\tid2State: " + id2State.Length);
+            Debug.Log("\tname2Id: " + name2Id.Length);
+
+            Array.Resize(ref id2State, originalLength + 1);
+            Array.Resize(ref name2Id, originalLength + 1);
+            Debug.Log("Resized arrays. New lengths:");
+            Debug.Log("\tid2State: " + id2State.Length);
+            Debug.Log("\tname2Id: " + name2Id.Length);
+
+            id2State[originalLength] = t;
+            Debug.Log("Set index " + originalLength + " to " + id2State[originalLength]);
+            name2Id[originalLength] = t.AssemblyQualifiedName;
+            Debug.Log("Set index " + originalLength + " to " + name2Id[originalLength]);
+
+            state2Id[t] = (short)originalLength;
+            Debug.Log("Set key " + t + " to " + state2Id[t]);
+
+            stateTable.SetFieldValue("stateIndexToType", id2State);
+            stateTable.SetFieldValue("stateIndexToTypeName", name2Id);
+            stateTable.SetFieldValue("stateTypeToIndex", state2Id);
         }
     }
 }
