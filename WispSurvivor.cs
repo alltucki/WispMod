@@ -44,7 +44,8 @@ namespace WispSurvivor
 
         private void Awake()
         {
-            On.RoR2.Networking.GameNetworkManager.OnClientConnect += (self, user, t) => { };    //Debugging networking
+            //On.RoR2.Networking.GameNetworkManager.OnClientConnect += (self, user, t) => { };    //Debugging networking
+
             Assets.PopulateAssets(); // first we load the assets from our assetbundle
             CreatePrefab(); // then we create our character's body prefab
             RegisterNetworkedEffects();

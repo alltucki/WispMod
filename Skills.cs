@@ -30,6 +30,7 @@ namespace EntityStates.WispSurvivorStates
             base.OnEnter();
 
             base.modelLocator.normalizeToFloor = true;
+
             EffectManager.SpawnEffect(WispSurvivor.WispSurvivor.spawnEffect, new EffectData
             {
                 origin = base.characterBody.footPosition
@@ -53,10 +54,26 @@ namespace EntityStates.WispSurvivorStates
     {
         public static float hoverVelocity = 100f;
         public static float hoverAcceleration = 40f;
+        private bool resetPosition;
 
         public override void OnEnter()
         {
             base.OnEnter();
+        }
+
+        public override void FixedUpdate()
+        {
+            base.FixedUpdate();
+            //Scoot the position of the particle effects over juuuuust a tiny bit
+            if(!resetPosition)
+            {
+                resetPosition = true;
+                Transform fireBase = base.GetModelTransform().Find("Fire");
+                if(fireBase)
+                {
+                    fireBase.localPosition = new Vector3(0f, 1.25f, 0f);
+                }
+            }
         }
 
         public override void ProcessJump()
@@ -598,8 +615,9 @@ namespace EntityStates.WispSurvivorStates
         {
             if (this.hasFired) return;
             this.hasFired = true;
-            if (base.isAuthority)
-            {
+            
+            //if (base.isAuthority)
+            //{
                 tetherHandler = base.GetComponent<TetherHandler>();
                 HurtBox closestHurtbox = null;
 
@@ -677,7 +695,7 @@ namespace EntityStates.WispSurvivorStates
                     closestHurtbox.healthComponent.body.AddBuff(WispSurvivor.Modules.Buffs.siphonTarget);
                 }
 
-            }
+            //}
 
             this.animator = base.GetModelAnimator();
             this.muzzleString = "Muzzle";
